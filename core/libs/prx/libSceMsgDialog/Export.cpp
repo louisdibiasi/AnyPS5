@@ -22,12 +22,9 @@ constexpr int kStatusFinished = 3;
 
 constexpr int kErrOk = 0;
 constexpr int kErrNotInitialized = static_cast<int>(0x80B80003u);
-constexpr int kErrBusy = static_cast<int>(0x80B80007u);
 constexpr int kErrNotRunning = static_cast<int>(0x80B8000Bu);
-constexpr int kErrArgNull = static_cast<int>(0x80B8000Du);
 
 constexpr int kButtonIdOk = MsgDialog::ButtonIdOk;
-constexpr int kButtonIdNo = MsgDialog::ButtonIdNo;
 constexpr int kModeUserMsg = MsgDialog::ModeUserMsg;
 constexpr int kModeProgressBar = MsgDialog::ModeProgressBar;
 
@@ -38,19 +35,6 @@ int g_buttonId = kButtonIdOk;
 int g_pollsLeft = 0;
 bool g_presented = false;
 std::chrono::steady_clock::time_point g_openedAt;
-
-void Inspect(const MsgDialog::ParsedParam& parsed) {
-    g_mode = parsed.mode;
-    g_buttonId = kButtonIdOk;
-    if (parsed.hasUserMessage && parsed.buttonType == MsgDialog::ButtonTypeYesNoFocusNo) g_buttonId = kButtonIdNo;
-}
-
-bool Present(const MsgDialog::ParsedParam& parsed) {
-    ModalDialogRequest request;
-    if (!MsgDialog::BuildRequest(parsed, request)) return false;
-    request.owner = ModalDialogOwnerMsgDialog;
-    return ModalDialogOpen_nid_postfix(request);
-}
 
 int Poll() {
     std::lock_guard g(g_lock);
@@ -89,17 +73,8 @@ int APS5_VABI sceMsgDialogTerminate(void) {
  return was ? kErrOk : kErrNotInitialized;
 }
 int APS5_VABI sceMsgDialogOpen(const void* param) {
- if (param == nullptr) return kErrArgNull;
- std::lock_guard g(g_lock);
- if (g_status == kStatusRunning) return kErrBusy;
- const MsgDialog::ParsedParam parsed = MsgDialog::ParseParam(param);
- Inspect(parsed);
- g_presented = Present(parsed);
- if (parsed.hasText) APS5_HIT("MSGDIALOG", "open: buttons=%d text=\"%s\" -> %s", parsed.buttonType, MsgDialog::LogText(parsed.text).c_str(), g_presented ? "shown" : "auto answer");
- g_pollsLeft = 2;
- g_openedAt = std::chrono::steady_clock::now();
- g_status = kStatusRunning;
- return kErrOk;
+ (void)param;
+ NotImplemented_nid_no_patch(__func__);
 }
 int APS5_VABI sceMsgDialogGetStatus(void) {
  return Poll();
