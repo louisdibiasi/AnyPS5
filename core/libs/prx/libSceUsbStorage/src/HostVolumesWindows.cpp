@@ -6,6 +6,7 @@
 #include <setupapi.h>
 #include <cfgmgr32.h>
 
+#include <algorithm>
 #include <cstring>
 #include <cwchar>
 #include <memory>
@@ -190,7 +191,10 @@ std::vector<HostVolume> ScanWindowsVolumes() {
     const DWORD drives = GetLogicalDrives();
     for (int letter = 0; letter < 26; ++letter) {
         if ((drives & (DWORD{1} << letter)) == 0) continue;
-        if (auto volume = Describe(static_cast<wchar_t>(L'A' + letter))) volumes.push_back(std::move(*volume));
+        if (auto volume = Describe(static_cast<wchar_t>(L'A' + letter));
+            volume && std::none_of(volumes.begin(), volumes.end(), [&](const auto& existing) { return existing.key == volume->key; })) {
+            volumes.push_back(std::move(*volume));
+        }
     }
     return volumes;
 }
