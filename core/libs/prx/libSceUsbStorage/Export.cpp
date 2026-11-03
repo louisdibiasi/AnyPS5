@@ -208,13 +208,17 @@ std::string Map(Device& device, std::uint32_t slot, const char* directory, const
     const auto names = DirectoryNames(directory, function);
     auto path = MountPoint(slot);
     for (const auto& name : names) path += "/" + name;
+    const auto host = HostDirectory(device, names);
     std::error_code error;
-    if (!std::filesystem::is_directory(HostDirectory(device, names), error)) {
+    if (!std::filesystem::is_directory(host, error)) {
         throw std::runtime_error(std::string(function) + ": mapping a directory the device does not hold is not implemented");
     }
     if (path.size() >= UsbStorage::MountPointSize) throw std::runtime_error(std::string(function) + ": a mount point longer than 127 bytes is not implemented");
-    if (std::find(device.maps.begin(), device.maps.end(), path) != device.maps.end()) {
-        throw std::runtime_error(std::string(function) + ": mapping a mapped directory again is not implemented");
+    for (const auto& mapped : device.maps) {
+        if (mapped == path || std::filesystem::equivalent(host, HostDirectory(device, DirectoryNames(mapped.c_str() + MountPoint(slot).size(), function)), error)) {
+            throw std::runtime_error(std::string(function) + ": mapping a mapped directory again is not implemented");
+        }
+        if (error) throw std::runtime_error(std::string(function) + ": comparing mapped directories failed: " + error.message());
     }
     device.maps.push_back(path);
     return path;
