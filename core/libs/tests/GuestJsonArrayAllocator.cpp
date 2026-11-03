@@ -122,6 +122,12 @@ int main() {
         Require(budget ? partial.items && trace.live.at(partial.items) == 32 && !*reinterpret_cast<void**>(partial.items) : !partial.items,
                 "Header and sentinel failures retain distinct partial array ownership");
         Require(_ZNK3sce4Json5Array4sizeEv(&partial) == 0, "Partial arrays remain empty");
+        if (partial.items) {
+            bool frontThrew = false, backThrew = false;
+            try { _ZNK3sce4Json5Array5frontEv(&partial); } catch (...) { frontThrew = true; }
+            try { _ZNK3sce4Json5Array4backEv(&partial); } catch (...) { backThrew = true; }
+            Require(frontThrew && backThrew, "Array endpoints with a missing sentinel must throw");
+        }
         if (partial.items) trace.headers.insert(partial.items);
         trace.budget = -1; _ZN3sce4Json5ArrayD1Ev(&partial);
         Require(!partial.items && trace.live.size() == baseline, "Partial arrays must be destructible without leaks");

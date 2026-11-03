@@ -2810,7 +2810,7 @@ const Value* APS5_VABI _ZNK3sce4Json5Array5frontEv(const Array* self) {
 }
 const Value* APS5_VABI _ZNK3sce4Json5Array4backEv(const Array* self) {
     if (!self->items) return &Defaults(TypeNull);
-    if (!self->items->head) return reinterpret_cast<const Value*>(16);
+    if (!self->items->head) NotImplemented_nid_no_patch(__func__);
     return &self->items->back();
 }
 void APS5_VABI _ZN3sce4Json5Array8pop_backEv(Array* self) { if (self->items) self->items->PopBack(); }
