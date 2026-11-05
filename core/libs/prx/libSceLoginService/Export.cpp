@@ -16,13 +16,11 @@ std::atomic<bool> g_initialized{false};
 extern "C" {
 
 int APS5_VABI sceLoginServiceInitialize(void) {
-    g_initialized.store(true);
-    return 0;
+    NotImplemented_nid_no_patch(__func__);
 }
 
 int APS5_VABI sceLoginServiceTerminate(void) {
-    g_initialized.store(false);
-    return 0;
+    NotImplemented_nid_no_patch(__func__);
 }
 
 int APS5_VABI sceLoginServiceRequestDevices(const LoginServiceDeviceRequest* param) {

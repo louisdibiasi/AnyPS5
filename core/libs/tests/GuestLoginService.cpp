@@ -2,6 +2,8 @@
 #include "prx/libc/include/general/VabiMacros.hpp"
 
 #include <cstdlib>
+#include <cstring>
+#include <stdexcept>
 
 namespace {
 
@@ -21,10 +23,21 @@ int main() {
     Require(sceLoginServiceRequestDevices(nullptr) == kErrInvalidArg);
     Require(sceLoginServiceRequestDevices(request) == kErrNotInitialized);
 
-    Require(sceLoginServiceInitialize() == 0);
+    try {
+        sceLoginServiceInitialize();
+        std::abort();
+    } catch (const std::runtime_error& error) {
+        Require(std::strcmp(error.what(), "sceLoginServiceInitialize not implemented") == 0);
+    }
     Require(sceLoginServiceRequestDevices(nullptr) == kErrInvalidArg);
+    Require(sceLoginServiceRequestDevices(request) == kErrNotInitialized);
 
-    Require(sceLoginServiceTerminate() == 0);
+    try {
+        sceLoginServiceTerminate();
+        std::abort();
+    } catch (const std::runtime_error& error) {
+        Require(std::strcmp(error.what(), "sceLoginServiceTerminate not implemented") == 0);
+    }
     Require(sceLoginServiceRequestDevices(nullptr) == kErrInvalidArg);
     Require(sceLoginServiceRequestDevices(request) == kErrNotInitialized);
     return 0;
