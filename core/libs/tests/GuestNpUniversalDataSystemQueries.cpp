@@ -33,14 +33,23 @@ static bool Zeroed(const Stat& stat) {
 }
 
 int main() {
-    CHECK(RejectsArgument([] { sceNpUniversalDataSystemInitialize(nullptr); }));
+    CHECK(sceNpUniversalDataSystemInitialize(nullptr) == static_cast<int>(0x80553102u));
     const NpUniversalDataSystemInitParam init{sizeof(NpUniversalDataSystemInitParam), 0x10000};
     NpUniversalDataSystemInitParam invalidSizeInit = init;
     invalidSizeInit.size = sizeof(NpUniversalDataSystemInitParam) - 1;
-    CHECK(RejectsArgument([invalidSizeInit] { sceNpUniversalDataSystemInitialize(&invalidSizeInit); }));
+    CHECK(sceNpUniversalDataSystemInitialize(&invalidSizeInit) == static_cast<int>(0x80553112u));
     invalidSizeInit.size = sizeof(NpUniversalDataSystemInitParam) + 8;
-    CHECK(RejectsArgument([invalidSizeInit] { sceNpUniversalDataSystemInitialize(&invalidSizeInit); }));
-    CHECK(sceNpUniversalDataSystemInitialize(&init) == 0);
+    CHECK(sceNpUniversalDataSystemInitialize(&invalidSizeInit) == static_cast<int>(0x80553112u));
+    NpUniversalDataSystemInitParam emptyPoolInit = init;
+    emptyPoolInit.pool_size = 0;
+    CHECK(sceNpUniversalDataSystemInitialize(&emptyPoolInit) == static_cast<int>(0x80553102u));
+    bool unimplemented = false;
+    try {
+        sceNpUniversalDataSystemInitialize(&init);
+    } catch (const std::runtime_error&) {
+        unimplemented = true;
+    }
+    CHECK(unimplemented);
 
     NpUniversalDataSystemMemoryStat memory;
     std::memset(&memory, 0x5a, sizeof(memory));
