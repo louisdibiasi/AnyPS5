@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <limits>
 
 namespace {
 
@@ -90,14 +89,26 @@ int main() {
     Require(Uncompress(counter, corrupt, output.data(), length) == InvalidTable);
     Require(length == output.size() && counter.allocations == counter.frees);
 
-    if constexpr (std::numeric_limits<unsigned long>::max() < std::numeric_limits<std::uint64_t>::max()) {
-        const std::uint64_t tooLarge = std::uint64_t{std::numeric_limits<unsigned long>::max()} + 1;
-        length = tooLarge;
-        Require(Uncompress(counter, Gzip, output.data(), length) == InvalidArgument && length == tooLarge);
-        length = output.size();
-        Require(FT_Gzip_Uncompress_nid_postfix(&memory, output.data(), &length, Gzip.data(), tooLarge) == InvalidArgument);
-        Require(length == output.size() && counter.allocations == counter.frees);
-    }
+    constexpr std::uint64_t wrap = std::uint64_t{1} << 32;
+    length = wrap + output.size();
+    Require(Uncompress(counter, Gzip, output.data(), length) == 0);
+    Require(length == TextLength && std::memcmp(output.data(), Text, TextLength) == 0);
+
+    length = output.size();
+    Require(FT_Gzip_Uncompress_nid_postfix(&memory, output.data(), &length, Gzip.data(), wrap + Gzip.size()) == 0);
+    Require(length == TextLength && std::memcmp(output.data(), Text, TextLength) == 0);
+    Require(counter.allocations == counter.frees);
+
+    length = wrap + TextLength - 1;
+    Require(Uncompress(counter, Gzip, output.data(), length) == ArrayTooLarge);
+    Require(length == wrap + TextLength - 1 && counter.allocations == counter.frees);
+
+    length = output.size();
+    const auto emptyInputError = FT_Gzip_Uncompress_nid_postfix(&memory, output.data(), &length, Gzip.data(), 0);
+    Require(emptyInputError != 0 && length == output.size());
+    length = output.size();
+    Require(FT_Gzip_Uncompress_nid_postfix(&memory, output.data(), &length, Gzip.data(), wrap) == emptyInputError);
+    Require(length == output.size() && counter.allocations == counter.frees);
 
     Counter initFails;
     initFails.limit = 0;
