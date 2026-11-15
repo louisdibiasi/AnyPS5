@@ -30,6 +30,7 @@
 #include "SceTypes.hpp"
 #include "prx/libSceAvPlayer/include/AvPlayer.hpp"
 #include "prx/libc/include/general/VabiMacros.hpp"
+#include "prx/libc/include/general/LogMacros.hpp"
 #include "prx/libSceAvPlayer/include/AvPlayer.hpp"
 
 namespace {
@@ -2446,9 +2447,48 @@ int main(int argc, char** argv) {
         TestAudioClockAdvancesAfterEof();
         TestTrailingVideoAfterShortAudio();
         {
+            static std::string guestCopyLog;
+            guestCopyLog.clear();
+            const auto oldSink = LogSink().exchange(+[](std::FILE*, const char* text, std::size_t length) -> int {
+                guestCopyLog.append(text, length);
+                errno = 42;
+                return 0;
+            });
             errno = 71;
-            Check(sceAvPlayerInit(reinterpret_cast<AvPlayerInitData*>(static_cast<std::uintptr_t>(0x10))) == nullptr && errno == 71,
+            const auto* unreadablePlayer = sceAvPlayerInit(reinterpret_cast<AvPlayerInitData*>(static_cast<std::uintptr_t>(0x10)));
+            const int unreadableErrno = errno;
+            const std::string unreadableLog = guestCopyLog;
+            guestCopyLog.clear();
+            AvPlayerInitData validInit{};
+            validInit.num_output_video_framebuffers = 2;
+            AvPlayerInternal* validPlayer = sceAvPlayerInit(&validInit);
+            const bool validWasSilent = guestCopyLog.empty();
+            errno = 71;
+            const bool unreadableFrame = sceAvPlayerGetAudioData(validPlayer, reinterpret_cast<AvPlayerFrameInfo*>(static_cast<std::uintptr_t>(0x10)));
+            const int frameErrno = errno;
+            const std::string frameLog = guestCopyLog;
+            guestCopyLog.clear();
+            AvPlayerInitDataEx outputInit{};
+            errno = 71;
+            const int unwritableResult = sceAvPlayerInitEx(&outputInit, reinterpret_cast<AvPlayerInternal**>(static_cast<std::uintptr_t>(0x10)));
+            const int unwritableErrno = errno;
+            const std::string unwritableLog = guestCopyLog;
+            LogSink().store(oldSink);
+            Check(unreadablePlayer == nullptr && unreadableErrno == 71,
                   "unreadable init data must return null without changing errno");
+            Check(unreadableLog.find("Could not read ") != std::string::npos &&
+                      unreadableLog.find(" bytes from guest address ") != std::string::npos &&
+                      std::count(unreadableLog.begin(), unreadableLog.end(), '\n') == 1,
+                  "unreadable init data must produce one guest copy diagnostic");
+            Check(validPlayer != nullptr && validWasSilent, "valid init must not log a guest copy failure");
+            Check(!unreadableFrame && frameErrno == 71 && frameLog.find("Could not read ") != std::string::npos &&
+                      std::count(frameLog.begin(), frameLog.end(), '\n') == 1,
+                  "unreadable frame info must log one guest copy failure and preserve errno");
+            Check(unwritableResult == AvPlayer::SCE_AVPLAYER_ERROR_INVALID_PARAMS && unwritableErrno == 71 &&
+                      unwritableLog.find("Could not write ") != std::string::npos &&
+                      std::count(unwritableLog.begin(), unwritableLog.end(), '\n') == 1,
+                  "unwritable init handle must log one guest copy failure and preserve errno");
+            Check(sceAvPlayerClose(validPlayer) == 0, "close valid diagnostic control player");
             AvPlayerInternal* badHandle = nullptr;
             errno = 71;
             Check(sceAvPlayerInitEx(reinterpret_cast<const AvPlayerInitDataEx*>(static_cast<std::uintptr_t>(0x10)), &badHandle) ==
